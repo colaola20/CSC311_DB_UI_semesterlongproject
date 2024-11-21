@@ -1,9 +1,12 @@
 package viewmodel;
 
+import com.azure.storage.blob.BlobClient;
 import dao.DbConnectivityClass;
+import dao.StorageUploader;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.concurrent.Task;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
@@ -22,30 +25,55 @@ import model.Person;
 import service.MyLogger;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.OutputStream;
 import java.net.URL;
-import java.time.LocalDate;
+import java.nio.file.Files;
 import java.util.Optional;
 import java.util.ResourceBundle;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import javafx.scene.control.ProgressBar;
 
 public class DB_GUI_Controller implements Initializable {
+    StorageUploader store = new StorageUploader();
 
     @FXML
     TextField first_name, last_name, department, major, email, imageURL;
     @FXML
     ImageView img_view;
+
+    @FXML
+    private ProgressBar progressBar;
+
     @FXML
     MenuBar menuBar;
+
+    @FXML
+    private MenuItem ChangePic, ClearItem, CopyItem, deleteItem, editItem, logOut, newItem;
+
     @FXML
     private TableView<Person> tv;
     @FXML
-    private Button deleteBtn, editBtn, addBtn;
+    private Button deleteBtn, editBtn, addBtn, clearBtn;
     @FXML
     private TableColumn<Person, Integer> tv_id;
+
+    @FXML
+    private ChoiceBox<String> choiceBox;
+
+
     @FXML
     private TableColumn<Person, String> tv_fn, tv_ln, tv_department, tv_major, tv_email;
     private final DbConnectivityClass cnUtil = new DbConnectivityClass();
     private final ObservableList<Person> data = cnUtil.getData();
 
+    /**
+     * Initializes the controller class. This method is automatically called after the fxml file has been loaded.
+     * @param url
+     * @param resourceBundle
+     */
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
         try {
@@ -58,66 +86,91 @@ public class DB_GUI_Controller implements Initializable {
 
             tv.setItems(data);
 
+            // Disable the delete and edit buttons until a record is selected
             deleteBtn.setDisable(true);
             editBtn.setDisable(true);
+            clearBtn.setDisable(true);
+            // Disable the add button until all fields are filled with valid data
             addBtn.setDisable(true);
 
+            editItem.setDisable(true);
+            deleteItem.setDisable(true);
+            ClearItem.setDisable(true);
+
+            // Disable the major field, so that the user can only select from the dropdown. After selecting a value from the dropdown, the major field will be automatically populated with the selected value.
+            major.setDisable(true);
+
+            // Add listeners to the first_name text field to enable the edit, delete, and add buttons when the field is filled with valid data
             first_name.textProperty().addListener((observable, oldValue, newValue) -> {
                 validationForAddBtn();
-                if (!first_name.getText().isEmpty() && !last_name.getText().isEmpty() && !email.getText().isEmpty() && !department.getText().isEmpty() && !major.getText().isEmpty()){
-                    deleteBtn.setDisable(false);
-                    editBtn.setDisable(false);
-                }
-                else {
-                    deleteBtn.setDisable(true);
-                    editBtn.setDisable(true);
-                }
+                boolean isInputValid = !first_name.getText().isEmpty() && !last_name.getText().isEmpty() && !email.getText().isEmpty() && !department.getText().isEmpty() && !major.getText().isEmpty();
+                deleteBtn.setDisable(!isInputValid);
+                editBtn.setDisable(!isInputValid);
+                clearBtn.setDisable(!isInputValid);
+                ClearItem.setDisable(!isInputValid);
+                editItem.setDisable(!isInputValid);
+                deleteItem.setDisable(!isInputValid);
             });
 
+            // Add listeners to the last_name text field to enable the edit, delete, and add buttons when the field is filled with valid data
             last_name.textProperty().addListener((observable, oldValue, newValue) -> {
                 validationForAddBtn();
-                if (!first_name.getText().isEmpty() && !last_name.getText().isEmpty() && !email.getText().isEmpty() && !department.getText().isEmpty() && !major.getText().isEmpty()){
-                    deleteBtn.setDisable(false);
-                    editBtn.setDisable(false);
-                }
-                else {
-                    deleteBtn.setDisable(true);
-                    editBtn.setDisable(true);
-                }
+                boolean isInputValid = !first_name.getText().isEmpty() && !last_name.getText().isEmpty() && !email.getText().isEmpty() && !department.getText().isEmpty() && !major.getText().isEmpty();
+                deleteBtn.setDisable(!isInputValid);
+                editBtn.setDisable(!isInputValid);
+                clearBtn.setDisable(!isInputValid);
+                ClearItem.setDisable(!isInputValid);
+                editItem.setDisable(!isInputValid);
+                deleteItem.setDisable(!isInputValid);
             });
 
+            // Add listeners to the department text field to enable the dit, delete, and add buttons when the field is filled with valid data
             department.textProperty().addListener((observable, oldValue, newValue) -> {
-                if (!first_name.getText().isEmpty() && !last_name.getText().isEmpty() && !email.getText().isEmpty() && !department.getText().isEmpty() && !major.getText().isEmpty()){
-                    deleteBtn.setDisable(false);
-                    editBtn.setDisable(false);
-                }
-                else {
-                    deleteBtn.setDisable(true);
-                    editBtn.setDisable(true);
-                }
+                validationForAddBtn();
+                boolean isInputValid = !first_name.getText().isEmpty() && !last_name.getText().isEmpty() && !email.getText().isEmpty() && !department.getText().isEmpty() && !major.getText().isEmpty();
+                deleteBtn.setDisable(!isInputValid);
+                editBtn.setDisable(!isInputValid);
+                clearBtn.setDisable(!isInputValid);
+                ClearItem.setDisable(!isInputValid);
+                editItem.setDisable(!isInputValid);
+                deleteItem.setDisable(!isInputValid);
+            });
+
+            // Add listeners to the email text field to enable the edit, delete, and add buttons when the field is filled with valid data
+            email.textProperty().addListener((observable, oldValue, newValue) -> {
+                validationForAddBtn();
+                boolean isInputValid = !first_name.getText().isEmpty() && !last_name.getText().isEmpty() && !email.getText().isEmpty() && !department.getText().isEmpty() && !major.getText().isEmpty();
+                deleteBtn.setDisable(!isInputValid);
+                editBtn.setDisable(!isInputValid);
+                clearBtn.setDisable(!isInputValid);
+                ClearItem.setDisable(!isInputValid);
+                editItem.setDisable(!isInputValid);
+                deleteItem.setDisable(!isInputValid);
             });
 
             major.textProperty().addListener((observable, oldValue, newValue) -> {
-                if (!first_name.getText().isEmpty() && !last_name.getText().isEmpty() && !email.getText().isEmpty() && !department.getText().isEmpty() && !major.getText().isEmpty()){
-                    deleteBtn.setDisable(false);
-                    editBtn.setDisable(false);
-                }
-                else {
-                    deleteBtn.setDisable(true);
-                    editBtn.setDisable(true);
-                }
+                validationForAddBtn();
+                boolean isInputValid = !first_name.getText().isEmpty() && !last_name.getText().isEmpty() && !email.getText().isEmpty() && !department.getText().isEmpty() && !major.getText().isEmpty();
+                deleteBtn.setDisable(!isInputValid);
+                editBtn.setDisable(!isInputValid);
+                clearBtn.setDisable(!isInputValid);
+                ClearItem.setDisable(!isInputValid);
+                editItem.setDisable(!isInputValid);
+                deleteItem.setDisable(!isInputValid);
             });
 
-            email.textProperty().addListener((observable, oldValue, newValue) -> {
-                validationForAddBtn();
-                if (!first_name.getText().isEmpty() && !last_name.getText().isEmpty() && !email.getText().isEmpty() && !department.getText().isEmpty() && !major.getText().isEmpty()){
-                    deleteBtn.setDisable(false);
-                    editBtn.setDisable(false);
-                }
-                else {
-                    deleteBtn.setDisable(true);
-                    editBtn.setDisable(true);
-                }
+
+
+            // Add listeners to the choice box to enable getting the selected value and populating the major field with the selected value
+            choiceBox.setItems(FXCollections.observableArrayList(
+                    Stream.of(Major.values())
+                            .map(Enum::name)
+                            .collect(Collectors.toList())
+            ));
+
+            choiceBox.getSelectionModel().selectedItemProperty().addListener((observable, oldValue, newValue) -> {
+                major.setText(newValue);
+                System.out.println("Selected value: " + newValue); // Debugging
             });
 
 
@@ -126,8 +179,11 @@ public class DB_GUI_Controller implements Initializable {
         }
     }
 
+    /**
+     * Validate the fields for the add button
+     */
     public void validationForAddBtn(){
-        if (isNameValid(first_name.getText()) && isNameValid(last_name.getText()) && isEmailValid(email.getText())) {
+        if (isNameValid(first_name.getText()) && isNameValid(last_name.getText()) && isEmailValid(email.getText()) && isDepartmentValid(department.getText()) && isMajorValid(major)) {
             addBtn.setDisable(false);
         } else {
             addBtn.setDisable(true);
@@ -153,6 +209,55 @@ public class DB_GUI_Controller implements Initializable {
         final String regex = "([a-zA-Z]{2,25})";
         return name.matches(regex);
     }
+
+    /**
+     * Check if the department is valid (should be between 2 and 15 characters long)
+     * @param department
+     * @return
+     */
+    private boolean isDepartmentValid(String department) {
+        final String regex = "([a-zA-Z]{2,15})";
+        return department.matches(regex);
+    }
+
+    private boolean isMajorValid(TextField major) {
+        System.out.println("Major: " + major.getText());
+        System.out.println(!major.getText().isEmpty());
+        return !major.getText().isEmpty();
+    }
+
+    /**
+     * Handle the clear menu item pressed event
+     * @param event
+     */
+    @FXML
+    void clearItemPressed(ActionEvent event) {
+        clearForm();
+    }
+
+    @FXML
+    void copyItemPressed(ActionEvent event) {
+
+    }
+
+    /**
+     * Handle the delete menu item pressed event
+     * @param event
+     */
+    @FXML
+    void deleteItemPressed(ActionEvent event) {
+        deleteRecord();
+    }
+
+    /**
+     * Handle the edit menu item pressed event
+     * @param event
+     */
+    @FXML
+    void editItemPressed(ActionEvent event) {
+        editRecord();
+    }
+
 
     @FXML
     protected void addNewRecord() {
@@ -241,7 +346,39 @@ public class DB_GUI_Controller implements Initializable {
         File file = (new FileChooser()).showOpenDialog(img_view.getScene().getWindow());
         if (file != null) {
             img_view.setImage(new Image(file.toURI().toString()));
+            Task<Void> uploadTask = createUploadTask(file, progressBar);
+            progressBar.progressProperty().bind(uploadTask.progressProperty());
+            new Thread(uploadTask).start();
         }
+    }
+
+    private Task<Void> createUploadTask(File file, ProgressBar progressBar) {
+        return new Task<>() {
+            @Override
+            protected Void call() throws Exception {
+                BlobClient blobClient = store.getContainerClient().getBlobClient(file.getName());
+                long fileSize = Files.size(file.toPath());
+                long uploadedBytes = 0;
+
+                try (FileInputStream fileInputStream = new FileInputStream(file);
+                     OutputStream blobOutputStream = blobClient.getBlockBlobClient().getBlobOutputStream()) {
+
+                    byte[] buffer = new byte[1024 * 1024]; // 1 MB buffer size
+                    int bytesRead;
+
+                    while ((bytesRead = fileInputStream.read(buffer)) != -1) {
+                        blobOutputStream.write(buffer, 0, bytesRead);
+                        uploadedBytes += bytesRead;
+
+                        // Calculate and update progress as a percentage
+                        int progress = (int) ((double) uploadedBytes / fileSize * 100);
+                        updateProgress(progress, 100);
+                    }
+                }
+
+                return null;
+            }
+        };
     }
 
     @FXML
@@ -317,7 +454,7 @@ public class DB_GUI_Controller implements Initializable {
         });
     }
 
-    private static enum Major {Business, CSC, CPIS}
+    public static enum Major {Business, CSC, CPIS, English, Mathematics, Nursing, SecuritySystems, SportManagement}
 
     private static class Results {
 
